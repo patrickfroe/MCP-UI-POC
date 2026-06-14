@@ -1,0 +1,16 @@
+[project]
+name = "mcp-server-example"
+version = "0.1.0"
+description = "Example MCP server (room booking) with an MCP-UI / MCP Apps interactive form, used as PoC dependency for the chat backend"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp==1.27.2",
+    "mcp-ui-server==1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_server_example"]

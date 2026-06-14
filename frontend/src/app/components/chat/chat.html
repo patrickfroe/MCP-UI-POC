@@ -1,0 +1,73 @@
+<div class="chat">
+  <header class="chat__header">
+    <h1>MCP Apps Chat PoC</h1>
+    <span class="chat__status" [class]="'chat__status--' + connectionState()">
+      @switch (connectionState()) {
+        @case ('open') { Verbunden }
+        @case ('connecting') { Verbinde … }
+        @case ('closed') { Verbindung getrennt }
+      }
+    </span>
+  </header>
+
+  <div class="chat__messages" #messages>
+    @for (item of items(); track item.id) {
+      @switch (item.kind) {
+        @case ('user') {
+          <div class="bubble bubble--user">{{ item.text }}</div>
+        }
+        @case ('assistant') {
+          <div class="bubble bubble--assistant">{{ item.text }}</div>
+        }
+        @case ('tool_call') {
+          <div class="card card--tool">
+            <div class="card__title">🔧 Tool-Aufruf: <code>{{ item.data.tool }}</code> (Server <code>{{ item.data.server }}</code>)</div>
+            <pre class="card__body">{{ item.data.args | json }}</pre>
+          </div>
+        }
+        @case ('tool_result') {
+          <div class="card card--tool" [class.card--error]="item.data.isError">
+            <div class="card__title">{{ item.data.isError ? '❌' : '✅' }} Ergebnis: <code>{{ item.data.tool }}</code></div>
+            <pre class="card__body">{{ item.data.summary }}</pre>
+          </div>
+        }
+        @case ('ui_resource') {
+          <app-mcp-ui-frame
+            [resource]="item.resource"
+            [sandbox]="item.sandbox"
+            [updates]="updatesFor(item.callId)"
+            (action)="onUiAction(item.callId, $event)"
+          />
+        }
+        @case ('notice') {
+          <div class="card card--notice">
+            <span>{{ item.data.message }}</span>
+            @if (item.data.url) {
+              <button type="button" class="link-button" (click)="openLink(item.data.url!)">
+                Link öffnen ({{ item.data.url }})
+              </button>
+            }
+          </div>
+        }
+        @case ('error') {
+          <div class="card card--error">⚠️ {{ item.data.message }}</div>
+        }
+      }
+    }
+    @if (thinking()) {
+      <div class="bubble bubble--assistant bubble--thinking">Agent denkt nach …</div>
+    }
+  </div>
+
+  <form class="chat__input" (ngSubmit)="send()">
+    <input
+      type="text"
+      name="draft"
+      placeholder="Nachricht eingeben…"
+      [(ngModel)]="draft"
+      [disabled]="connectionState() !== 'open'"
+      autocomplete="off"
+    />
+    <button type="submit" [disabled]="connectionState() !== 'open' || !draft.trim()">Senden</button>
+  </form>
+</div>

@@ -1,0 +1,15 @@
+<div class="mcp-ui-frame" [class.untrusted]="sandbox.trustLevel === 'untrusted'">
+  <iframe
+    #frame
+    class="mcp-ui-frame__iframe"
+    title="Interaktive Ansicht (eingebettete UI-Ressource)"
+    sandbox=""
+    referrerpolicy="no-referrer"
+    [style.height.px]="heightPx()"
+  ></iframe>
+  @if (sandbox.trustLevel === 'untrusted') {
+    <div class="mcp-ui-frame__badge" title="Diese Ansicht stammt von einem nicht als vertrauenswuerdig markierten Server.">
+      nicht vertrauenswuerdige Quelle
+    </div>
+  }
+</div>

@@ -1,0 +1,28 @@
+.mcp-ui-frame {
+  position: relative;
+  margin: 4px 0;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.mcp-ui-frame__iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  transition: height 0.15s ease-out;
+}
+
+.mcp-ui-frame__badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.7rem;
+  font-weight: 600;
+  pointer-events: none;
+}
