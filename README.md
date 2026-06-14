@@ -89,6 +89,34 @@ npm start   # ng serve --port 4200
 Open `http://localhost:4200/` in a browser. The chat UI connects to the
 backend's WebSocket at `ws://localhost:8000/ws/chat`.
 
+## Running with Docker
+
+A `docker-compose.yml` is provided to run the backend and frontend as
+containers, without needing a local Python/Node setup.
+
+```bash
+docker compose up --build
+```
+
+- Backend: `http://localhost:8000` (health check at `/health`, WebSocket at
+  `/ws/chat`)
+- Frontend: `http://localhost:4200` (built with `ng build` and served via
+  nginx)
+
+The backend container builds `mcp-server-example` and `backend` into the
+same image and runs it with `uvicorn`. By default it uses the mock LLM
+provider, same as the local setup. To use the real Anthropic provider, set
+the environment variables before starting compose, e.g.:
+
+```bash
+LLM_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-... docker compose up --build
+```
+
+All environment variables from the table above (`LLM_PROVIDER`,
+`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `CORS_ORIGINS`) are passed through to
+the backend container; `CORS_ORIGINS` defaults to `http://localhost:4200` to
+match the published frontend port.
+
 ## Demo walkthrough
 
 1. Open the frontend and check that the header shows the connection as

@@ -1,0 +1,17 @@
+# Used as build context root for backend/Dockerfile (see docker-compose.yml).
+# Keeps the build context small and avoids shipping dev/build artifacts.
+
+.git/
+.venv/
+docs/
+
+**/__pycache__/
+**/*.pyc
+**/*.egg-info/
+backend/.pytest_cache/
+
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+*.log
