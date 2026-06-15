@@ -28,11 +28,12 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from mcp_server_example.templates import render_booking_form_html
+from mcp_server_example.templates import render_booking_form_html, render_dashboard_html
 
 mcp = FastMCP("room-booking")
 
 BOOKING_FORM_RESOURCE_URI = "ui://room-booking/booking-form"
+DASHBOARD_RESOURCE_URI = "ui://room-booking/analytics-dashboard"
 
 ROOMS: list[dict[str, Any]] = [
     {"id": "room-a", "name": "Raum A", "capacity": 4},
@@ -41,7 +42,28 @@ ROOMS: list[dict[str, Any]] = [
 ]
 
 # In-memory booking store - good enough for a PoC, no persistence needed.
+# Seeded with a few bookings so the analytics dashboard has data to show.
 BOOKINGS: dict[str, dict[str, Any]] = {}
+for _seed in [
+    {"roomId": "room-a", "roomName": "Raum A", "date": "2025-06-02", "time": "09:00", "attendees": 3},
+    {"roomId": "room-a", "roomName": "Raum A", "date": "2025-06-03", "time": "14:00", "attendees": 2},
+    {"roomId": "room-b", "roomName": "Raum B", "date": "2025-06-02", "time": "11:00", "attendees": 6},
+    {"roomId": "room-c", "roomName": "Raum C (groß)", "date": "2025-06-04", "time": "10:00", "attendees": 15},
+    {"roomId": "room-b", "roomName": "Raum B", "date": "2025-06-04", "time": "13:00", "attendees": 5},
+]:
+    _booking_id = str(uuid.uuid4())
+    BOOKINGS[_booking_id] = {"status": "confirmed", "bookingId": _booking_id, **_seed}
+
+
+def _compute_dashboard_data(metric: str) -> dict[str, Any]:
+    counts: dict[str, int] = {}
+    for booking in BOOKINGS.values():
+        key = booking["roomName"] if metric == "by_room" else booking["date"]
+        counts[key] = counts.get(key, 0) + 1
+
+    labels = sorted(counts.keys())
+    values = [counts[label] for label in labels]
+    return {"metric": metric, "labels": labels, "values": values}
 
 
 @mcp.tool(description="Liste der buchbaren Meetingräume mit Kapazität.")
@@ -112,6 +134,45 @@ def book_room(room_id: str, date: str, time: str, attendees: int) -> dict[str, A
 )
 def booking_form_resource() -> str:
     return render_booking_form_html(ROOMS)
+
+
+@mcp.tool(
+    description=(
+        "Zeigt ein interaktives Analytics-Dashboard mit Buchungsstatistiken "
+        "an (z.B. Buchungen pro Raum oder pro Tag)."
+    ),
+    meta={
+        "ui": {
+            "resourceUri": DASHBOARD_RESOURCE_URI,
+            "visibility": ["model", "app"],
+        }
+    },
+)
+def show_analytics_dashboard() -> str:
+    return "Das Analytics-Dashboard wurde geöffnet."
+
+
+@mcp.tool(
+    description=(
+        "Liefert aggregierte Buchungsstatistiken, gefiltert nach Metrik "
+        "('by_room' fuer Buchungen pro Raum oder 'by_day' fuer Buchungen pro Tag)."
+    )
+)
+def get_dashboard_data(metric: str = "by_room") -> dict[str, Any]:
+    if metric not in ("by_room", "by_day"):
+        metric = "by_room"
+    return _compute_dashboard_data(metric)
+
+
+@mcp.resource(
+    DASHBOARD_RESOURCE_URI,
+    name="analytics_dashboard",
+    title="Analytics-Dashboard",
+    description="Interaktives Dashboard mit Buchungsstatistiken.",
+    mime_type="text/html;profile=mcp-app",
+)
+def analytics_dashboard_resource() -> str:
+    return render_dashboard_html(_compute_dashboard_data("by_room"))
 
 
 if __name__ == "__main__":

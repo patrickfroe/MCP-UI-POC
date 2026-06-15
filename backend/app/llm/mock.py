@@ -24,6 +24,7 @@ from app.llm.base import (
 
 _BOOKING_KEYWORDS = ("raum", "room", "buchen", "book", "meeting", "termin")
 _LIST_KEYWORDS = ("liste", "list", "verfügbar", "verfuegbar", "welche raeume", "welche räume")
+_DASHBOARD_KEYWORDS = ("dashboard", "statistik", "auswertung", "analytics", "übersicht", "uebersicht")
 
 
 def _find_tool(tools: list[ToolSpec], suffix: str) -> str | None:
@@ -53,12 +54,20 @@ class MockLLMProvider(LLMProvider):
     def _greeting(self) -> str:
         return (
             "Hallo! Ich bin der Demo-Agent für die Meetingraum-Buchung. "
-            "Frag mich z. B. 'Ich möchte einen Meetingraum buchen' oder "
-            "'Welche Räume sind verfügbar?'."
+            "Frag mich z. B. 'Ich möchte einen Meetingraum buchen', "
+            "'Welche Räume sind verfügbar?' oder 'Zeig mir das Dashboard'."
         )
 
     def _handle_user_message(self, message: UserMessage, tools: list[ToolSpec]) -> AssistantTurn:
         text = message.text.lower()
+
+        if any(keyword in text for keyword in _DASHBOARD_KEYWORDS):
+            tool_name = _find_tool(tools, "show_analytics_dashboard")
+            if tool_name:
+                return AssistantTurn(
+                    text=None,
+                    tool_calls=[ToolCallRequest(id=str(uuid.uuid4()), name=tool_name, arguments={})],
+                )
 
         if any(keyword in text for keyword in _BOOKING_KEYWORDS):
             tool_name = _find_tool(tools, "show_booking_form")
@@ -91,6 +100,14 @@ class MockLLMProvider(LLMProvider):
                 text="Hier ist das Buchungsformular. Bitte Raum, Datum, Uhrzeit und "
                 "Teilnehmerzahl auswählen und absenden."
             )
+
+        if tool_name.endswith(".show_analytics_dashboard"):
+            return AssistantTurn(
+                text="Hier ist das Analytics-Dashboard mit den aktuellen Buchungsstatistiken."
+            )
+
+        if tool_name.endswith(".get_dashboard_data"):
+            return AssistantTurn(text=None)
 
         if tool_name.endswith(".list_rooms"):
             try:
