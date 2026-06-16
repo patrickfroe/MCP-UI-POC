@@ -226,3 +226,176 @@ def render_booking_form_html(rooms: list[dict[str, Any]]) -> str:
         }
     )
     return resource.resource.text
+
+
+def render_dashboard_html(data: dict[str, Any]) -> str:
+    """Render the analytics dashboard showing booking counts as a bar chart.
+
+    The chart is drawn as plain inline SVG, generated and updated by
+    framework-free JS - no external chart library / CDN script is used,
+    since the sandbox CSP only allows ``script-src 'unsafe-inline'`` and
+    forbids loading external resources.
+
+    ``data`` (``{"metric": ..., "labels": [...], "values": [...]}``) is baked
+    in as ``window.__MCP_UI_INITIAL_DATA__``, mirroring the room list in
+    ``render_booking_form_html``. Selecting a different metric posts a
+    ``tool`` UIActionResult for ``get_dashboard_data``; the result comes back
+    as a ``mcp-ui-update`` event and is rendered with the same function.
+    """
+
+    data_json = json.dumps(data)
+
+    html = f"""<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {{
+        color-scheme: light dark;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }}
+      body {{
+        margin: 0;
+        padding: 16px;
+        box-sizing: border-box;
+      }}
+      h2 {{
+        margin: 0 0 12px;
+        font-size: 1.05rem;
+      }}
+      label {{
+        display: flex;
+        flex-direction: column;
+        font-size: 0.8rem;
+        font-weight: 600;
+        gap: 4px;
+        max-width: 220px;
+        margin-bottom: 12px;
+      }}
+      select {{
+        font-size: 0.95rem;
+        padding: 6px 8px;
+        border-radius: 6px;
+        border: 1px solid #9098a8;
+        background: Field;
+        color: FieldText;
+      }}
+      #chart {{
+        width: 100%;
+        height: 220px;
+        overflow: visible;
+      }}
+      .bar {{
+        fill: #2563eb;
+      }}
+      .bar-label {{
+        font-size: 11px;
+        fill: currentColor;
+        text-anchor: middle;
+      }}
+      .value-label {{
+        font-size: 11px;
+        font-weight: 600;
+        fill: currentColor;
+        text-anchor: middle;
+      }}
+    </style>
+  </head>
+  <body>
+    <h2>Buchungs-Statistik</h2>
+    <label>
+      Metrik
+      <select id="metric">
+        <option value="by_room">Buchungen pro Raum</option>
+        <option value="by_day">Buchungen pro Tag</option>
+      </select>
+    </label>
+    <svg id="chart" viewBox="0 0 320 220" preserveAspectRatio="xMidYMid meet"></svg>
+
+    <script>
+      const INITIAL = {data_json};
+
+      const metricSelect = document.getElementById("metric");
+      metricSelect.value = INITIAL.metric;
+
+      const svg = document.getElementById("chart");
+
+      function renderChart(data) {{
+        const labels = data.labels || [];
+        const values = data.values || [];
+        const maxValue = Math.max(1, ...values);
+
+        const width = 320;
+        const height = 220;
+        const chartHeight = 160;
+        const barWidth = labels.length ? width / labels.length : width;
+
+        svg.innerHTML = "";
+
+        labels.forEach((label, index) => {{
+          const value = values[index] || 0;
+          const barHeight = (value / maxValue) * chartHeight;
+          const x = index * barWidth + barWidth * 0.15;
+          const y = chartHeight - barHeight;
+          const barW = barWidth * 0.7;
+
+          const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          rect.setAttribute("class", "bar");
+          rect.setAttribute("x", x);
+          rect.setAttribute("y", y);
+          rect.setAttribute("width", barW);
+          rect.setAttribute("height", Math.max(barHeight, 1));
+          svg.appendChild(rect);
+
+          const valueText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          valueText.setAttribute("class", "value-label");
+          valueText.setAttribute("x", x + barW / 2);
+          valueText.setAttribute("y", y - 4);
+          valueText.textContent = value;
+          svg.appendChild(valueText);
+
+          const labelText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          labelText.setAttribute("class", "bar-label");
+          labelText.setAttribute("x", x + barW / 2);
+          labelText.setAttribute("y", chartHeight + 20);
+          labelText.textContent = label;
+          svg.appendChild(labelText);
+        }});
+      }}
+
+      renderChart(INITIAL);
+
+      metricSelect.addEventListener("change", () => {{
+        // UIActionResult (MCP-UI): the host translates this into a
+        // tools/call("get_dashboard_data", params) against this server and
+        // pushes the result back via a "ui_update" -> "mcp-ui-update" event.
+        window.parent.postMessage(
+          {{
+            type: "tool",
+            payload: {{ toolName: "get_dashboard_data", params: {{ metric: metricSelect.value }} }},
+          }},
+          "*"
+        );
+      }});
+
+      // Backend push (ui_update) is re-dispatched by the host as a
+      // "mcp-ui-update" CustomEvent on `document`.
+      document.addEventListener("mcp-ui-update", (event) => {{
+        const data = event.detail || {{}};
+        if (data.labels && data.values) {{
+          renderChart(data);
+        }}
+      }});
+    </script>
+  </body>
+</html>
+"""
+
+    resource = create_ui_resource(
+        {
+            "uri": "ui://room-booking/analytics-dashboard",
+            "content": {"type": "rawHtml", "htmlString": html},
+            "encoding": "text",
+        }
+    )
+    return resource.resource.text
